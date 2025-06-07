@@ -1,0 +1,2 @@
+#define HttpProxy_VERSION_MAJOR @HttpProxy_VERSION_MAJOR@
+#define HttpProxy_VERSION_MINOR @HttpProxy_VERSION_MINOR@
