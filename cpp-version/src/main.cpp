@@ -9,8 +9,7 @@
 
 
 #include "config.h"
-
-#define UNUSED(x) (void)(x)
+#include "util.h"
 
 void print_prog_info(char *prog_name)
 {
