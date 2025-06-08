@@ -2,6 +2,7 @@
 #include <cstring>
 #include <array>
 #include <stdexcept>
+#include <memory>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -25,39 +26,45 @@ int main(int argc, char **argv)
 
     const char*  hostname = "httpbin.org";
     Socket client_socket;
-    sockaddr_in server_address = {};
-    memset(&server_address, 0, sizeof(server_address));
 
     std::array<char, 1024> buffer{};
     int sz;
 
-    // move to getaddrinfo
-    struct hostent* he = gethostbyname(hostname);
-    if (he == nullptr)
-    {
-        herror("Failed to resolve host");
+    // Use getaddrinfo with unique_ptr and custom deleter
+    struct addrinfo hints = {};
+    hints.ai_family = AF_INET; // Force IPv4 for parity with previous code.
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    struct addrinfo* result = nullptr;
+    int gai_ret = getaddrinfo(hostname, "80", &hints, &result);
+    if (gai_ret != 0) {
+        std::cerr << "Failed to resolve host: " << gai_strerror(gai_ret) << std::endl;
         return 69;
     }
 
-    server_address.sin_family = AF_INET;
-    server_address.sin_port = htons(80);
-    server_address.sin_len = 0; // sin_len is ignored on most platforms, safe to leave as 0
-    std::memcpy(&server_address.sin_addr, he->h_addr_list[0], (size_t) he->h_length);
-    std::memset(&server_address.sin_zero, 0, sizeof(server_address.sin_zero));
+    // Unique pointer with custom deleter for addrinfo
+    std::unique_ptr<struct addrinfo, void(*)(struct addrinfo*)> addrinfo_holder(result, freeaddrinfo);
 
-    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock_fd == -1)
-    {
-        perror("Failed to create client socket");
+    int sock_fd = -1;
+    struct addrinfo* rp = result;
+    for (; rp != nullptr; rp = rp->ai_next) {
+        sock_fd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sock_fd == -1)
+            continue;
+
+        if (connect(sock_fd, rp->ai_addr, rp->ai_addrlen) == 0)
+            break; // Success
+
+        close(sock_fd);
+        sock_fd = -1;
+    }
+
+    if (sock_fd == -1) {
+        std::cerr << "Failed to create and connect client socket" << std::endl;
         return 69;
     }
     client_socket = Socket(sock_fd);
-
-    if (connect(client_socket.fd(), (sockaddr*) &server_address, sizeof(server_address)) != 0)
-    {
-        perror("Failed to connect to socket");
-        return 69;
-    }
 
     // TODO handle may not fit in buffer
     sz = snprintf(buffer.data(), buffer.size(), "GET /ip HTTP/1.1\r\n"
@@ -66,9 +73,9 @@ int main(int argc, char **argv)
                                                 "\r\n", hostname);
     std::cout << "Request: \n" << buffer.data() << std::endl;
 
+    // TODO handle may not fit in buffer and check return sz sent
     send(client_socket.fd(), buffer.data(), (size_t) sz, 0);
 
-    // TODO handle may not fit in buffer
     sz = (int) read(client_socket.fd(), buffer.data(), buffer.size());
     std::cout << std::string(buffer.data(), (size_t) sz) << std::endl;
 
