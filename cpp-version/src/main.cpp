@@ -1,5 +1,7 @@
 #include <iostream>
 #include <cstring>
+#include <array>
+#include <stdexcept>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -7,9 +9,9 @@
 #include <netdb.h>
 #include <unistd.h>
 
-
 #include "config.h"
 #include "util.h"
+#include "socket_raii.h"
 
 void print_prog_info(char *prog_name)
 {
@@ -21,23 +23,20 @@ int main(int argc, char **argv)
     UNUSED(argc);
     print_prog_info(argv[0]);
 
-    int exit_code = 0;
-
-    // Resolve "httpbin.org" to IPv4 address using gethostbyname
     const char*  hostname = "httpbin.org";
-    int client_socket = 0;
+    Socket client_socket;
     sockaddr_in server_address = {};
     memset(&server_address, 0, sizeof(server_address));
 
-    char buffer[1024];
+    std::array<char, 1024> buffer{};
     int sz;
 
+    // move to getaddrinfo
     struct hostent* he = gethostbyname(hostname);
     if (he == nullptr)
     {
         herror("Failed to resolve host");
-        exit_code = 69;
-        goto end;
+        return 69;
     }
 
     server_address.sin_family = AF_INET;
@@ -46,34 +45,32 @@ int main(int argc, char **argv)
     std::memcpy(&server_address.sin_addr, he->h_addr_list[0], (size_t) he->h_length);
     std::memset(&server_address.sin_zero, 0, sizeof(server_address.sin_zero));
 
-    if ((client_socket = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    int sock_fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_fd == -1)
     {
         perror("Failed to create client socket");
-        exit_code = 69;
-        goto end;
+        return 69;
     }
+    client_socket = Socket(sock_fd);
 
-    if (connect(client_socket, (sockaddr*) &server_address, sizeof(server_address)) != 0)
+    if (connect(client_socket.fd(), (sockaddr*) &server_address, sizeof(server_address)) != 0)
     {
         perror("Failed to connect to socket");
-        exit_code = 69;
-        goto end;
+        return 69;
     }
 
-    // maybe fully not fill in buffer
-    sz = snprintf(buffer, sizeof(buffer), "GET /ip HTTP/1.1\r\n" 
-                                        "Host: %s\r\n"
-                                        "Accept: */*\r\n"
-                                        "\r\n", hostname);
-    std::cout << "Request: \n" << buffer << std::endl;
+    // TODO handle may not fit in buffer
+    sz = snprintf(buffer.data(), buffer.size(), "GET /ip HTTP/1.1\r\n"
+                                                "Host: %s\r\n"
+                                                "Accept: */*\r\n"
+                                                "\r\n", hostname);
+    std::cout << "Request: \n" << buffer.data() << std::endl;
 
-    send(client_socket, buffer, (size_t) sz, 0);
+    send(client_socket.fd(), buffer.data(), (size_t) sz, 0);
 
-    sz = (int) read(client_socket, buffer, sizeof(buffer));
-    std::cout << std::string(buffer, (size_t) sz) << std::endl;
+    // TODO handle may not fit in buffer
+    sz = (int) read(client_socket.fd(), buffer.data(), buffer.size());
+    std::cout << std::string(buffer.data(), (size_t) sz) << std::endl;
 
-end:
-    close(client_socket);
-    freehostent(he);
-    return exit_code;
+    return 0;
 }
