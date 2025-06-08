@@ -1,6 +1,5 @@
 #include <iostream>
-#include <cstring>
-#include <array>
+#include <string>
 #include <stdexcept>
 #include <memory>
 
@@ -24,8 +23,8 @@ int main(int argc, char **argv)
     UNUSED(argc);
     print_prog_info(argv[0]);
 
-    const char*  hostname = "httpbin.org";
-    Socket client_socket;
+    const char* hostname = "httpbin.org";
+    const char* path = "/ip";
 
     std::array<char, 1024> buffer{};
     int sz;
@@ -64,17 +63,25 @@ int main(int argc, char **argv)
         std::cerr << "Failed to create and connect client socket" << std::endl;
         return 69;
     }
-    client_socket = Socket(sock_fd);
+    Socket client_socket(sock_fd);
 
-    // TODO handle may not fit in buffer
-    sz = snprintf(buffer.data(), buffer.size(), "GET /ip HTTP/1.1\r\n"
-                                                "Host: %s\r\n"
-                                                "Accept: */*\r\n"
-                                                "\r\n", hostname);
-    std::cout << "Request: \n" << buffer.data() << std::endl;
+    std::string request_payload; 
+    request_payload.append("GET ").append(path).append(" HTTP/1.1\r\n")
+                    .append("Host: ").append(hostname).append("\r\n")
+                    .append("Accept: */*\r\n")
+                    .append("\r\n");
+    std::cout << "Request: \n" << request_payload << std::endl;
 
     // TODO handle may not fit in buffer and check return sz sent
-    send(client_socket.fd(), buffer.data(), (size_t) sz, 0);
+    ssize_t sent_bytes = send(client_socket.fd(), request_payload.c_str(), request_payload.size(), 0);
+    if (sent_bytes == -1) {
+        perror("send");
+        return 69;
+    }
+    if ((size_t) sent_bytes != request_payload.size()) {
+        std::cerr << "Unable to send full payload" << std::endl;
+        return 69;
+    }
 
     sz = (int) read(client_socket.fd(), buffer.data(), buffer.size());
     std::cout << std::string(buffer.data(), (size_t) sz) << std::endl;
