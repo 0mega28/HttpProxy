@@ -26,9 +26,6 @@ int main(int argc, char **argv)
     const char* hostname = "httpbin.org";
     const char* path = "/ip";
 
-    std::array<char, 1024> buffer{};
-    int sz;
-
     // Use getaddrinfo with unique_ptr and custom deleter
     struct addrinfo hints = {};
     hints.ai_family = AF_INET; // Force IPv4 for parity with previous code.
@@ -72,7 +69,6 @@ int main(int argc, char **argv)
                     .append("\r\n");
     std::cout << "Request: \n" << request_payload << std::endl;
 
-    // TODO handle may not fit in buffer and check return sz sent
     ssize_t sent_bytes = send(client_socket.fd(), request_payload.c_str(), request_payload.size(), 0);
     if (sent_bytes == -1) {
         perror("send");
@@ -83,7 +79,9 @@ int main(int argc, char **argv)
         return 69;
     }
 
-    sz = (int) read(client_socket.fd(), buffer.data(), buffer.size());
+    // TODO ensure full reading
+    std::array<char, 1024> buffer{};
+    ssize_t sz = (int) read(client_socket.fd(), buffer.data(), buffer.size());
     std::cout << std::string(buffer.data(), (size_t) sz) << std::endl;
 
     return 0;
