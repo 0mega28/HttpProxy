@@ -10,7 +10,7 @@ set(CMAKE_COMPILE_WARNING_AS_ERROR ON)
 
 configure_file(config.h.in config.h)
 
-add_executable(proxy src/main.cpp src/socket_raii.cpp)
+add_executable(proxy src/main.cpp src/socket_raii.cpp src/remote_socket.cpp)
 target_include_directories(proxy PUBLIC
     ${PROJECT_BINARY_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}/include
