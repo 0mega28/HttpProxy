@@ -32,6 +32,7 @@ int main(int argc, char **argv)
     request_payload.append("GET ").append(path).append(" HTTP/1.1\r\n")
                     .append("Host: ").append(hostname).append("\r\n")
                     .append("Accept: */*\r\n")
+                    .append("Connection: close\r\n")
                     .append("\r\n");
     std::cout << "Request: \n" << request_payload << std::endl;
 
