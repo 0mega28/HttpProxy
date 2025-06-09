@@ -2,6 +2,7 @@
 #include <string>
 #include <stdexcept>
 #include <memory>
+#include <vector>
 
 #include "config.h"
 #include "util.h"
@@ -47,9 +48,14 @@ int main(int argc, char **argv)
     }
 
     // TODO ensure full reading
-    std::array<char, 1024> buffer{};
-    ssize_t sz = (int) read(client_socket.fd(), buffer.data(), buffer.size());
-    std::cout << std::string(buffer.data(), (size_t) sz) << std::endl;
+    std::vector<char> buffer;
+    buffer.resize(1024);
+    ssize_t sz;
+    
+    while ((sz = read(client_socket.fd(), buffer.data(), buffer.size())) > 0) {
+        std::cout << std::string(buffer.data(), (size_t) sz);
+    }
+    std::cout << std::endl;
 
     return 0;
 }
