@@ -6,6 +6,7 @@
 struct proxy_url {
     const std::string scheme;
     const std::string host;
+    std::optional<const std::string> port;
     const std::string rest;
 };
 

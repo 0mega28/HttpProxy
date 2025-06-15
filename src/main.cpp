@@ -79,7 +79,7 @@ int main(int argc, char **argv)
     receive_buff.resize(1024);
     ssize_t sz;
 
-    // try read
+    // try read, full read not guranteed
     if ((sz = recv(client_socket.fd(), receive_buff.data(), receive_buff.size(), 0)) > 0)
     {
         receive_buff.resize((size_t)sz);
@@ -155,7 +155,7 @@ int main(int argc, char **argv)
     // skip the first line in receive_buff
     receive_buff = receive_buff.substr(request_line_end + 1);
 
-
+    
 
 
     const std::string response = "HTTP/1.1 200 OK\r\n\r\n";

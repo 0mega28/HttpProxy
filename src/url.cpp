@@ -1,6 +1,7 @@
 #include "url.h"
 #include <optional>
 
+// TODO add support for port parsing
 const std::optional<const proxy_url> parse_proxy_url(const std::string& url) noexcept {
     // extract scheme
     auto scheme_end = url.find("://");
@@ -23,5 +24,5 @@ const std::optional<const proxy_url> parse_proxy_url(const std::string& url) noe
     // extract rest
     std::string rest = url.substr(host_end);
 
-    return proxy_url{scheme, host, rest};
+    return proxy_url{scheme, host, std::nullopt, rest};
 }
