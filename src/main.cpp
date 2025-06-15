@@ -16,9 +16,6 @@ void print_prog_info(char *prog_name)
     std::cout << prog_name << " v" << HttpProxy_VERSION_MAJOR << '.' << HttpProxy_VERSION_MINOR << std::endl;
 }
 
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <arpa/inet.h>
 int main(int argc, char **argv)
 {
     if (argc >= 1)
