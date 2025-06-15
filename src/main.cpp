@@ -68,47 +68,12 @@ int main(int argc, char **argv)
     if (argc >= 1)
         print_prog_info(argv[0]);
 
-    int server_fd = socket(PF_INET, SOCK_STREAM, 0);
-    if (server_fd < 0)
-    {
-        perror("socket creation");
-        return 69;
-    }
-
-    Socket server_socket(server_fd);
     int port = 8080;
+    ServerSocket server_socket(port);
+    std::cout << "Server Started at port: " << server_socket.port() << std::endl;
 
-    struct sockaddr_in server_sockaddr;
-    memset(&server_sockaddr, 0, sizeof(server_sockaddr));
-    server_sockaddr.sin_family = PF_INET;
-    server_sockaddr.sin_addr.s_addr = INADDR_ANY;
-    server_sockaddr.sin_port = htons(port);
+    Socket client_socket = server_socket.accept_connection();
 
-    if (bind(server_socket.fd(), (struct sockaddr *)&server_sockaddr, sizeof(server_sockaddr)) != 0)
-    {
-        perror("bind");
-        return 69;
-    }
-
-    if (listen(server_socket.fd(), 20) != 0)
-    {
-        perror("listen");
-        return 69;
-    }
-
-    std::cout << "Server Started at port: " << port << std::endl;
-
-    struct sockaddr_in client_addr;
-    socklen_t client_addr_len = sizeof(client_addr);
-    int client_fd = accept(server_socket.fd(), (struct sockaddr *)&client_addr, &client_addr_len);
-
-    if (client_fd == -1)
-    {
-        perror("accept");
-        return 69;
-    }
-
-    Socket client_socket(client_fd);
     std::string receive_buff;
     // TODO url size can be 2048
     receive_buff.resize(1024);
