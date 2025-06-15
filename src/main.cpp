@@ -16,50 +16,6 @@ void print_prog_info(char *prog_name)
     std::cout << prog_name << " v" << HttpProxy_VERSION_MAJOR << '.' << HttpProxy_VERSION_MINOR << std::endl;
 }
 
-int remote_request(void)
-{
-    const std::string path = "/ip";
-    const std::string hostname = "httpbin.org";
-    const std::string port = "80";
-    std::expected<Socket, remote_socket_error> socket_or_error = get_remote_socket(hostname, port);
-    if (!socket_or_error.has_value())
-    {
-        std::cerr << socket_or_error.error().error << std::endl;
-        return 69;
-    }
-
-    Socket &client_socket = socket_or_error.value();
-    std::string request_payload;
-    request_payload.append("GET ").append(path).append(" HTTP/1.1\r\n").append("Host: ").append(hostname).append("\r\n").append("Accept: */*\r\n").append("Connection: close\r\n").append("\r\n");
-    std::cout << "Request: \n"
-              << request_payload << std::endl;
-
-    ssize_t sent_bytes = send(client_socket.fd(), request_payload.c_str(), request_payload.size(), 0);
-    if (sent_bytes == -1)
-    {
-        perror("send");
-        return 69;
-    }
-    if ((size_t)sent_bytes != request_payload.size())
-    {
-        std::cerr << "Unable to send full payload" << std::endl;
-        return 69;
-    }
-
-    // TODO ensure full reading
-    std::vector<char> buffer;
-    buffer.resize(1024);
-    ssize_t sz;
-
-    while ((sz = read(client_socket.fd(), buffer.data(), buffer.size())) > 0)
-    {
-        std::cout << std::string(buffer.data(), (size_t)sz);
-    }
-    std::cout << std::endl;
-
-    return 0;
-}
-
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
@@ -155,24 +111,67 @@ int main(int argc, char **argv)
     // skip the first line in receive_buff
     receive_buff = receive_buff.substr(request_line_end + 1);
 
-    
-
-
-    const std::string response = "HTTP/1.1 200 OK\r\n\r\n";
-    std::cout << "Sending response to client of size: " << response.size() << std::endl;
-    sz = send(client_socket.fd(), response.c_str(), response.size(), 0);
-    if (sz == -1)
+    std::expected<Socket, remote_socket_error> remote_socket_or_error = get_remote_socket(parsed_url.host, parsed_url.port.value_or("80"));
+    if (!remote_socket_or_error.has_value())
     {
-        perror("send");
-        return 69;
-    }
-    if ((size_t)sz != response.size())
-    {
-        std::cerr << "Unable to send full response" << std::endl;
+        std::cerr << remote_socket_or_error.error().error << std::endl;
         return 69;
     }
 
-    std::cout << "Bytes written to client: " << sz << std::endl;
+    Socket &remote_socket = remote_socket_or_error.value(); 
+    {
+        std::string request_start = verb + " " + parsed_url.rest + " " + http_version + "\r\n";
+        // TODO add X-Forwarded-For header
+        std::cout << "Sending to remote: [" << request_start << "]\n";
+        send(remote_socket.fd(), request_start.c_str(), request_start.size(), 0);
+    }
+    // TODO loop
+    receive_buff.resize(1024);
+    if(true) {
+        ssize_t sz;
+        std::cout << "Sending to remote: [" << receive_buff << "]\n";
+        // TODO strip headers like Proxy-Connection
+        sz = send(remote_socket.fd(), receive_buff.c_str(), receive_buff.size(), 0);
+        if (sz == -1)
+        {
+            perror("send");
+            return 69;
+        }
+        if ((size_t)sz != receive_buff.size())
+        {
+            std::cerr << "Unable to send full response" << std::endl;
+            return 69;
+        }
+
+        if ((sz = recv(remote_socket.fd(), receive_buff.data(), receive_buff.size(), 0)) > 0)
+        {
+            receive_buff.resize((size_t)sz);
+        }
+
+        if (sz == -1)
+        {
+            std::cerr << "Error reading payload from client" << std::endl;
+            return 69;
+        }
+
+        if (sz == 0)
+        {
+            // client closed their side of connection
+        }
+        std::cout << "Received from remote: [" << receive_buff << "]\n";
+
+        sz = send(client_socket.fd(), receive_buff.c_str(), receive_buff.size(), 0);
+        if (sz == -1)
+        {
+            perror("send");
+            return 69;
+        }
+        if ((size_t)sz != receive_buff.size())
+        {
+            std::cerr << "Unable to send full response" << std::endl;
+            return 69;
+        }
+    }
 
     return 0;
 }

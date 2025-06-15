@@ -16,7 +16,7 @@ const std::optional<const proxy_url> parse_proxy_url(const std::string& url) noe
     std::string host;
     if (host_end == std::string::npos) {
         host = url.substr(host_start);
-        return proxy_url{scheme, host, "/"};
+        return proxy_url{scheme, host, std::nullopt, "/"};
     } else {
         host = url.substr(host_start, host_end - host_start);
     }
