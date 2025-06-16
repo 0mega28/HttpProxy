@@ -16,22 +16,13 @@ void print_prog_info(char *prog_name)
     std::cout << prog_name << " v" << HttpProxy_VERSION_MAJOR << '.' << HttpProxy_VERSION_MINOR << std::endl;
 }
 
-int main(int argc, char **argv)
-{
-    if (argc >= 1)
-        print_prog_info(argv[0]);
-
-    int port = 8080;
-    ServerSocket server_socket(port);
-    std::cout << "Server Started at port: " << server_socket.port() << std::endl;
-
-    Socket client_socket = server_socket.accept_connection();
-
+int handle_request(Socket&& client_socket) {
     std::string receive_buff;
     // TODO url size can be 2048
     receive_buff.resize(1024);
     ssize_t sz;
 
+    
     // try read, full read not guranteed
     if ((sz = recv(client_socket.fd(), receive_buff.data(), receive_buff.size(), 0)) > 0)
     {
@@ -167,6 +158,26 @@ int main(int argc, char **argv)
         {
             std::cerr << "Unable to send full response" << std::endl;
             return 69;
+        }
+    }
+
+    return 0;
+}
+
+int main(int argc, char **argv)
+{
+    if (argc >= 1)
+        print_prog_info(argv[0]);
+
+    int port = 8080;
+    ServerSocket server_socket(port);
+    std::cout << "Server Started at port: " << server_socket.port() << std::endl;
+
+    while (true) {
+        Socket client_socket = server_socket.accept_connection();
+        // TODO migrate to thread pool
+        if(handle_request(std::move(client_socket)) != 0) {
+            std::cerr << "Improper Request Handling" << std::endl;
         }
     }
 
